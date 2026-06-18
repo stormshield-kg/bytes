@@ -1,7 +1,7 @@
 #![warn(rust_2018_idioms)]
 
-use bytes::buf::Buf;
 use bytes::Bytes;
+use bytes::buf::Buf;
 
 #[test]
 fn long_take() {

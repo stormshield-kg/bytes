@@ -13,7 +13,7 @@ use std::io::IoSlice;
 const INPUT: &[u8] = b"\xffFqrjrDqPhvTc45vvq33f6bJrUtyHESuTeklWKgYd64xgzxJwvAkpYYnpNJyZSRn";
 
 macro_rules! e {
-    ($big_endian_val:expr, $little_endian_val:expr) => {
+    ($big_endian_val:expr_2021, $little_endian_val:expr_2021) => {
         if cfg!(target_endian = "big") {
             $big_endian_val
         } else {
@@ -26,7 +26,7 @@ macro_rules! buf_tests {
     ($make_input:ident) => {
         buf_tests!($make_input, true);
     };
-    ($make_input:ident, $checks_vectored_is_complete:expr) => {
+    ($make_input:ident, $checks_vectored_is_complete:expr_2021) => {
         use super::*;
 
         #[test]
@@ -257,7 +257,7 @@ macro_rules! buf_tests {
         buf_tests!(var_number $make_input, get_int_le, get_int_le_zero, get_int_le_overflow, i64, get_int_le, 3, 0x7146ff);
         buf_tests!(var_number $make_input, get_int_ne, get_int_ne_zero, get_int_ne_overflow, i64, get_int_ne, 3, e!(0xffffffffffff4671u64 as i64, 0x7146ff));
     };
-    (number $make_input:ident, $ok_name:ident, $panic_name:ident, $number:ty, $method:ident, $value:expr) => {
+    (number $make_input:ident, $ok_name:ident, $panic_name:ident, $number:ty, $method:ident, $value:expr_2021) => {
         #[test]
         fn $ok_name() {
             let mut buf = $make_input(INPUT);
@@ -276,7 +276,7 @@ macro_rules! buf_tests {
             let _ = buf.$method();
         }
     };
-    (var_number $make_input:ident, $ok_name:ident, $ok_zero_name:ident, $panic_name:ident, $number:ty, $method:ident, $len:expr, $value:expr) => {
+    (var_number $make_input:ident, $ok_name:ident, $ok_zero_name:ident, $panic_name:ident, $number:ty, $method:ident, $len:expr_2021, $value:expr_2021) => {
         #[test]
         fn $ok_name() {
             let mut buf = $make_input(INPUT);

@@ -1,7 +1,7 @@
-use crate::buf::{limit, Chain, Limit, UninitSlice};
+use crate::buf::{Chain, Limit, UninitSlice, limit};
 #[cfg(feature = "std")]
-use crate::buf::{writer, Writer};
-use crate::{panic_advance, panic_does_not_fit, TryGetError};
+use crate::buf::{Writer, writer};
+use crate::{TryGetError, panic_advance, panic_does_not_fit};
 
 use core::{mem, ptr};
 
@@ -1364,7 +1364,7 @@ macro_rules! deref_forward_bufmut {
 
         #[inline]
         unsafe fn advance_mut(&mut self, cnt: usize) {
-            (**self).advance_mut(cnt)
+            unsafe { (**self).advance_mut(cnt) }
         }
 
         #[inline]
@@ -1605,18 +1605,20 @@ unsafe impl BufMut for Vec<u8> {
 
     #[inline]
     unsafe fn advance_mut(&mut self, cnt: usize) {
-        let len = self.len();
-        let remaining = self.capacity() - len;
+        unsafe {
+            let len = self.len();
+            let remaining = self.capacity() - len;
 
-        if remaining < cnt {
-            panic_advance(&TryGetError {
-                requested: cnt,
-                available: remaining,
-            });
+            if remaining < cnt {
+                panic_advance(&TryGetError {
+                    requested: cnt,
+                    available: remaining,
+                });
+            }
+
+            // Addition will not overflow since the sum is at most the capacity.
+            self.set_len(len + cnt);
         }
-
-        // Addition will not overflow since the sum is at most the capacity.
-        self.set_len(len + cnt);
     }
 
     #[inline]

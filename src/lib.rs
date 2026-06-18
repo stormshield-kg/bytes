@@ -185,8 +185,7 @@ impl core::fmt::Display for TryGetError {
         write!(
             f,
             "Not enough bytes remaining in buffer to read value (requested {} but only {} available)",
-            self.requested,
-            self.available
+            self.requested, self.available
         )
     }
 }

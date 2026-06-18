@@ -2,7 +2,7 @@ use super::{Bytes, BytesMut};
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::{cmp, fmt};
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 
 macro_rules! serde_impl {
     ($ty:ident, $visitor_ty:ident, $from_slice:ident, $from_vec:ident) => {

@@ -1,9 +1,9 @@
+use crate::buf::{Chain, Take, take};
 #[cfg(feature = "std")]
-use crate::buf::{reader, Reader};
-use crate::buf::{take, Chain, Take};
+use crate::buf::{Reader, reader};
+use crate::{TryGetError, panic_advance, panic_does_not_fit};
 #[cfg(feature = "std")]
 use crate::{min_u64_usize, saturating_sub_usize_u64};
-use crate::{panic_advance, panic_does_not_fit, TryGetError};
 
 #[cfg(feature = "std")]
 use std::io::IoSlice;
@@ -40,7 +40,7 @@ macro_rules! buf_try_get_impl {
             return Ok($typ::$conv(buf));
         }
     }};
-    (le => $this:ident, $typ:tt, $len_to_read:expr) => {{
+    (le => $this:ident, $typ:tt, $len_to_read:expr_2021) => {{
         const SIZE: usize = core::mem::size_of::<$typ>();
 
         // The same trick as above does not improve the best case speed.
@@ -55,7 +55,7 @@ macro_rules! buf_try_get_impl {
         $this.try_copy_to_slice(subslice)?;
         return Ok($typ::from_le_bytes(buf));
     }};
-    (be => $this:ident, $typ:tt, $len_to_read:expr) => {{
+    (be => $this:ident, $typ:tt, $len_to_read:expr_2021) => {{
         const SIZE: usize = core::mem::size_of::<$typ>();
 
         let slice_at = match SIZE.checked_sub($len_to_read) {
@@ -74,11 +74,11 @@ macro_rules! buf_get_impl {
         return (|| buf_try_get_impl!($this, $typ::$conv))()
             .unwrap_or_else(|error| panic_advance(&error));
     }};
-    (le => $this:ident, $typ:tt, $len_to_read:expr) => {{
+    (le => $this:ident, $typ:tt, $len_to_read:expr_2021) => {{
         return (|| buf_try_get_impl!(le => $this, $typ, $len_to_read))()
             .unwrap_or_else(|error| panic_advance(&error));
     }};
-    (be => $this:ident, $typ:tt, $len_to_read:expr) => {{
+    (be => $this:ident, $typ:tt, $len_to_read:expr_2021) => {{
         return (|| buf_try_get_impl!(be => $this, $typ, $len_to_read))()
             .unwrap_or_else(|error| panic_advance(&error));
     }};

@@ -1,6 +1,6 @@
 #![warn(rust_2018_idioms)]
 
-use bytes::{buf::Limit, BufMut};
+use bytes::{BufMut, buf::Limit};
 
 #[test]
 fn long_limit() {

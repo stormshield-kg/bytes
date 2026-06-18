@@ -64,23 +64,27 @@ impl Ledger {
 
 unsafe impl GlobalAlloc for Ledger {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        let size = layout.size();
-        let ptr = System.alloc(layout);
-        self.insert(ptr, size);
-        ptr
+        unsafe {
+            let size = layout.size();
+            let ptr = System.alloc(layout);
+            self.insert(ptr, size);
+            ptr
+        }
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        let orig_size = self.remove(ptr);
+        unsafe {
+            let orig_size = self.remove(ptr);
 
-        if orig_size != layout.size() {
-            panic!(
-                "bad dealloc: alloc size was {}, dealloc size is {}",
-                orig_size,
-                layout.size()
-            );
-        } else {
-            System.dealloc(ptr, layout);
+            if orig_size != layout.size() {
+                panic!(
+                    "bad dealloc: alloc size was {}, dealloc size is {}",
+                    orig_size,
+                    layout.size()
+                );
+            } else {
+                System.dealloc(ptr, layout);
+            }
         }
     }
 }

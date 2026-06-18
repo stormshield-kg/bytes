@@ -1,6 +1,6 @@
 #![warn(rust_2018_idioms)]
 
-use bytes::{buf::IntoIter, Bytes};
+use bytes::{Bytes, buf::IntoIter};
 
 #[test]
 fn iter_len() {

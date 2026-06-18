@@ -15,34 +15,34 @@ struct Odd;
 
 unsafe impl GlobalAlloc for Odd {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        if layout.align() == 1 && layout.size() > 0 {
-            // Allocate slightly bigger so that we can offset the pointer by 1
-            let size = layout.size() + 1;
-            let new_layout = match Layout::from_size_align(size, 1) {
-                Ok(layout) => layout,
-                Err(_err) => return ptr::null_mut(),
-            };
-            let ptr = System.alloc(new_layout);
-            if !ptr.is_null() {
-                ptr.offset(1)
+        unsafe {
+            if layout.align() == 1 && layout.size() > 0 {
+                // Allocate slightly bigger so that we can offset the pointer by 1
+                let size = layout.size() + 1;
+                let new_layout = match Layout::from_size_align(size, 1) {
+                    Ok(layout) => layout,
+                    Err(_err) => return ptr::null_mut(),
+                };
+                let ptr = System.alloc(new_layout);
+                if !ptr.is_null() { ptr.offset(1) } else { ptr }
             } else {
-                ptr
+                System.alloc(layout)
             }
-        } else {
-            System.alloc(layout)
         }
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        if layout.align() == 1 && layout.size() > 0 {
-            let size = layout.size() + 1;
-            let new_layout = match Layout::from_size_align(size, 1) {
-                Ok(layout) => layout,
-                Err(_err) => std::process::abort(),
-            };
-            System.dealloc(ptr.offset(-1), new_layout);
-        } else {
-            System.dealloc(ptr, layout);
+        unsafe {
+            if layout.align() == 1 && layout.size() > 0 {
+                let size = layout.size() + 1;
+                let new_layout = match Layout::from_size_align(size, 1) {
+                    Ok(layout) => layout,
+                    Err(_err) => std::process::abort(),
+                };
+                System.dealloc(ptr.offset(-1), new_layout);
+            } else {
+                System.dealloc(ptr, layout);
+            }
         }
     }
 }
