@@ -216,3 +216,187 @@ fn panic_does_not_fit(size: usize, nbytes: usize) -> ! {
         size, nbytes
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::VecDeque;
+    use std::println;
+    use std::vec::Vec;
+
+    use crate::bytes_mut::KIND_VEC;
+    use crate::{BufMut, BytesMut};
+
+    const RESET: &str = "\x1b[0m";
+    const RED: &str = "\x1b[0;31m";
+    const BLUE: &str = "\x1b[0;34m";
+
+    fn print(cache: &BytesMut, title: &str) {
+        println!(
+            "{title} {:<4?} at 0x{:06x} + {}",
+            (cache.len(), cache.capacity()),
+            unsafe {
+                (if cache.kind() == KIND_VEC {
+                    cache.ptr.as_ptr() as usize - cache.get_vec_pos()
+                } else {
+                    (*cache.data).vec.as_ptr() as usize
+                }) & 0xFFFFFF
+            },
+            unsafe {
+                (if cache.kind() == KIND_VEC {
+                    cache.get_vec_pos()
+                } else {
+                    cache.ptr.as_ptr() as usize - (*cache.data).vec.as_ptr() as usize
+                }) & 0xFFFFFF
+            },
+        );
+    }
+
+    fn print_split_from_reused(buf: &BytesMut, out: &BytesMut) {
+        println!("{BLUE}split from reused:");
+        print(out, "    out:        ");
+        print(buf, "    remaining:  ");
+        println!("{RESET}");
+    }
+
+    fn print_new_alloc(buf: &BytesMut, out: &BytesMut) {
+        println!("{RED}new alloc:");
+        print(out, "    out:        ");
+        print(buf, "    remaining:  ");
+        println!("{RESET}");
+    }
+
+    #[test]
+    fn test1() {
+        println!();
+
+        let mut pool = Pool::new(10 * 1500, 16);
+
+        let data = [1; 983];
+
+        let mut packets = VecDeque::new();
+
+        for _ in 0..11 {
+            packets.push_back(pool.put_packet(&data));
+        }
+
+        let _first = packets.pop_front();
+
+        for _ in 0..100 {
+            packets.pop_front();
+            packets.push_back(pool.put_packet(&data));
+        }
+
+        println!();
+    }
+
+    #[test]
+    fn test2() {
+        println!();
+
+        let mut pool = Pool::new(10 * 1500, 16);
+
+        let mut packets = VecDeque::new();
+
+        let reclaim_size = 16 + 983;
+        // let reclaim_size = 16 + mtu; // if size is not known
+
+        let read_packet_fn = |buf: &mut BytesMut| {
+            let header_size = 100;
+            buf.put_bytes(1, header_size);
+
+            let payload_size = 883;
+            buf.put_bytes(1, payload_size);
+
+            header_size + payload_size
+        };
+
+        for _ in 0..11 {
+            packets.push_back(pool.put_packet_with(reclaim_size, read_packet_fn));
+        }
+
+        let _first = packets.pop_front();
+
+        for _ in 0..100 {
+            packets.pop_front();
+            packets.push_back(pool.put_packet_with(reclaim_size, read_packet_fn));
+        }
+
+        println!();
+    }
+
+    pub struct Pool {
+        storage_queue: Vec<BytesMut>,
+        storage_cursor: usize,
+        storage_capacity: usize,
+        reserved_size: usize,
+    }
+
+    impl Pool {
+        pub fn new(storage_capacity: usize, reserved_size: usize) -> Self {
+            Self {
+                storage_queue: Vec::new(),
+                storage_cursor: 0,
+                storage_capacity,
+                reserved_size,
+            }
+        }
+
+        pub fn truncate(&mut self, len: usize) {
+            self.storage_queue.truncate(len);
+        }
+
+        pub fn put_packet(&mut self, src: &[u8]) -> BytesMut {
+            self.put_packet_with(self.reserved_size + src.len(), |buf| {
+                buf.put(src);
+                src.len()
+            })
+        }
+
+        // pub async fn put_packet_async_with();
+
+        pub fn put_packet_with(
+            &mut self,
+            reclaim_size: usize,
+            read_packet_fn: impl Fn(&mut BytesMut) -> usize,
+        ) -> BytesMut {
+            let len = self.storage_queue.len();
+
+            let (head, tail) = self.storage_queue.split_at_mut(self.storage_cursor);
+
+            for (n, buf) in std::iter::chain(tail, head).take(100.min(len)).enumerate() {
+                if buf.try_reclaim(reclaim_size) {
+                    let out = Self::put_and_split(buf, self.reserved_size, read_packet_fn);
+                    print_split_from_reused(buf, &out);
+                    self.storage_cursor = (self.storage_cursor + n) % len;
+                    return out;
+                }
+            }
+
+            self.storage_cursor = len;
+
+            let storage = BytesMut::with_capacity(self.storage_capacity);
+            let buf = self.storage_queue.push_mut(storage);
+            let out = Self::put_and_split(buf, self.reserved_size, read_packet_fn);
+            print_new_alloc(buf, &out);
+            out
+        }
+
+        fn put_and_split(
+            buf: &mut BytesMut,
+            reserved_size: usize,
+            read_packet_fn: impl Fn(&mut BytesMut) -> usize,
+        ) -> BytesMut {
+            debug_assert!(reserved_size.is_multiple_of(8));
+            buf.put_bytes(0, reserved_size);
+
+            let len = reserved_size + read_packet_fn(buf);
+
+            let aligned_len = len.next_multiple_of(8);
+            buf.put_bytes(0, aligned_len - len);
+
+            let mut out = buf.split_to(aligned_len);
+            out.truncate(len);
+            out
+        }
+    }
+}
